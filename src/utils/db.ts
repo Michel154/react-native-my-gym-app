@@ -1,6 +1,14 @@
 import * as SQLite from "expo-sqlite";
 
-const db = SQLite.openDatabaseSync("gymmlogg.db");
+let dbInstance: SQLite.SQLiteDatabase | null = null;
+
+// Funktion för att hämta (och öppna) databasen asynkront
+async function getDb() {
+  if (!dbInstance) {
+    dbInstance = await SQLite.openDatabaseAsync("gymmlogg.db");
+  }
+  return dbInstance;
+}
 
 export interface WorkoutEntry {
   id: string;
@@ -11,19 +19,20 @@ export interface WorkoutEntry {
   imageUri?: string;
 }
 
-export function initDatabase() {
+export async function initDatabase() {
   try {
-    db.execSync(`
-    CREATE TABLE IF NOT EXISTS workouts (
-      id TEXT PRIMARY KEY NOT NULL,
-      date TEXT NOT NULL,
-      timestamp INTEGER NOT NULL,
-      title TEXT NOT NULL,
-      notes TEXT,
-      mood TEXT,
-      imageUri TEXT
-    );
-  `);
+    const db = await getDb();
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS workouts (
+        id TEXT PRIMARY KEY NOT NULL,
+        date TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        notes TEXT,
+        mood TEXT,
+        imageUri TEXT
+      );
+    `);
   } catch (error) {
     console.error("Kunde inte initiera databasen", error);
   }
@@ -31,9 +40,10 @@ export function initDatabase() {
 
 export const getEntries = async (): Promise<WorkoutEntry[]> => {
   try {
-    const rows = db.getAllSync(
-      `SELECT * FROM workouts ORDER BY timestamp DESC`,
-    ) as WorkoutEntry[];
+    const db = await getDb();
+    const rows = (await db.getAllAsync(
+      `SELECT * FROM workouts ORDER BY timestamp DESC`
+    )) as WorkoutEntry[];
 
     console.log("DATABAS-INNEHÅLL:", JSON.stringify(rows, null, 2));
 
@@ -45,13 +55,14 @@ export const getEntries = async (): Promise<WorkoutEntry[]> => {
 };
 
 export const saveEntry = async (
-  entry: Omit<WorkoutEntry, "id">,
+  entry: Omit<WorkoutEntry, "id">
 ): Promise<void> => {
   try {
+    const db = await getDb();
     const id = Date.now().toString();
     const timestamp = Date.now();
 
-    db.runSync(
+    await db.runAsync(
       "INSERT INTO workouts (id, date, timestamp, title, notes, mood, imageUri) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         id,
@@ -61,7 +72,7 @@ export const saveEntry = async (
         entry.notes,
         entry.mood,
         entry.imageUri || null,
-      ],
+      ]
     );
   } catch (error) {
     console.error("Kunde inte spara träningspass", error);
@@ -70,7 +81,8 @@ export const saveEntry = async (
 
 export const deleteEntry = async (id: string): Promise<void> => {
   try {
-    db.runSync("DELETE FROM workouts WHERE id = ?", [id]);
+    const db = await getDb();
+    await db.runAsync("DELETE FROM workouts WHERE id = ?", [id]);
   } catch (error) {
     console.error("Kunde inte ta bort träningspass", error);
   }

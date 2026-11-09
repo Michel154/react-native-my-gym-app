@@ -64,23 +64,29 @@ export const WorkoutScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
 
-    await saveEntry({
-      date: new Date().toLocaleDateString("sv-SE", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title,
-      notes,
-      mood: mood || "",
-      imageUri: imageUri || undefined,
-    });
+    try {
+      // Vänta in att passet sparas i den asynkrona databasen
+      await saveEntry({
+        date: new Date().toLocaleDateString("sv-SE", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }),
+        title,
+        notes,
+        mood: mood || "",
+        imageUri: imageUri || undefined,
+      });
 
-    setTitle("");
-    setNotes("");
-    setMood(null);
-    setImageUri(null);
-    navigation.navigate("Träningslogg");
+      setTitle("");
+      setNotes("");
+      setMood(null);
+      setImageUri(null);
+      navigation.navigate("Träningslogg");
+    } catch (error) {
+      console.error("Kunde inte spara passet:", error);
+      Alert.alert("Ett fel uppstod när passet skulle sparas.");
+    }
   };
 
   return (
